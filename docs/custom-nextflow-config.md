@@ -51,3 +51,55 @@ params {
   bed_regions  = 'assets/targets.bed'
 }
 
+## 3) Label Proses & Resource
+Nextflow bisa kita setting untuk pakai **resource berbeda untuk setiap proses**.  
+Gunakan `withLabel:` atau `withName:` untuk override kebutuhan CPU/RAM/time.
+
+### Contoh dengan `label`
+```groovy
+process {
+  // default semua proses
+  cpus = 2
+  memory = 4.GB
+  time = '2h'
+
+  // override berdasarkan label
+  withLabel: 'map'       { cpus = 8;  memory = 32.GB; time = '24h' }
+  withLabel: 'assemble'  { cpus = 12; memory = 48.GB; time = '36h' }
+}
+
+### Contoh dengan 'process name'
+```groovy
+process {
+  withName: 'pipeline:reference_assembly:map_reads' { cpus = 8; memory = 32.GB; time = '24h' }
+  withName: 'pipeline:split_bam'                    { cpus = 4; memory = 16.GB; time = '8h' }
+  withName: 'pipeline:assemble_transcripts'         { cpus = 12; memory = 48.GB; time = '36h' }
+}
+
+## 4. Menghindari Error "No space left on device"
+Error ini sering muncul karena:
+1. workDir diarahkan ke disk exFAT/NTFS (tidak kompatibel).
+2. Disk penuh (mis. /tmp terlalu kecil).
+
+### Solusi
+Atur workDir di nextflow.config atau custom.config:
+```groovy
+workDir = '/mnt/nvme_ext4/work'   // gunakan filesystem EXT4/XFS
+process {
+  scratch = true                  // pakai scratch lokal
+  env.TMPDIR = '/mnt/nvme_ext4/tmp'
+}
+
+## 5) 5. Mengatasi OOM (Out Of Memory)
+Error exit 137 atau Killed biasanya karena RAM kurang.
+
+Solusi
+1. Tambahkan alokasi RAM di process:
+```groovy
+process {
+  withName: 'pipeline:assemble_transcripts' {
+    cpus = 16
+    memory = 64.GB
+    time = '48h'
+  }
+}
