@@ -50,6 +50,7 @@ params {
   // Example subset / target gene
   bed_regions  = 'assets/targets.bed'
 }
+---
 
 ## 3) Process Labels, Disk Issues, and OOM Handling
 
@@ -76,6 +77,7 @@ process {
   withName: 'pipeline:split_bam'                    { cpus = 4;  memory = 16.GB; time = '8h' }
   withName: 'pipeline:assemble_transcripts'         { cpus = 12; memory = 48.GB; time = '36h' }
 }
+---
 
 ## 4) Avoiding "No space left on device" Errors
 This error often appears because:
@@ -90,6 +92,7 @@ process {
   scratch = true                  // pakai scratch lokal
   env.TMPDIR = '/mnt/nvme_ext4/tmp'
 }
+---
 
 ## 5) Handling OOM (Out Of Memory)
 Error `exit 137` or `Killed` ussually indicates insufficient RAM.
