@@ -1,34 +1,34 @@
-## If you're using the HDD external (specific for exFAT/NTFS type) you must to customize your netxflow.config file
+## If you're using an external HDD (especially exFAT/NTFS type), you must customize your `nextflow.config` file
 
-Dokumen ini menjelaskan cara mengubah pipeline lewat **profile** dan **override** di `nextflow.config`, termasuk set CPU/RAM per proses, ganti `workDir`, dan tips mengatasi error umum (OOM, `No space left on device`).
+### This document explains how to modify the pipeline using **profiles** and **overrides** in `nextflow.config`, including setting CPU/RAM per process, changing the `workDir`, and tips for handling common errors (OOM, `No space left on device`).
 ---
 
-## 1) Cara Nextflow Membaca Konfigurasi
-Urutan prioritas (yang paling tinggi di bawah):
-1. `nextflow.config` bawaan pipeline
-2. File config tambahan via `-c my.config`
-3. Profile yang diaktifkan via `-profile`
-4. Variabel/parameter CLI (`--param value`)
+## 1) How Nextflow Reads Configuration
+Priority order (highest priority at the bottom):
+1. Default `nextflow.config` from the pipeline
+2. Additional config file via `-c my.config`
+3. Profiles enabled with `-profile`
+4. CLI variables/parameters (`--param value`)
 
-> Praktiknya: simpan customize di file terpisah, mis. `conf/custom.config`, lalu panggil dengan `-c conf/custom.config`.
+> In practice: keep your custom settings in a separate file, e.g. `conf/custom.config`, then call it with `-c conf/custom.config`.
 ---
 
-## 2) Struktur Minimal File Kustom
-Buat file: `conf/custom.config`
+## 2) Minimal Custom Config Structure
+Create a file: `conf/custom.config`
 ```groovy
 profiles {
-  // Profile untuk kerja di laptop/VM single node
+  // Profile for running on laptop / single-node VM
   local {
     process {
       executor = 'local'
       withLabel: 'light' { cpus = 2; memory = 4.GB; time = '2h' }
       withLabel: 'heavy' { cpus = 8; memory = 32.GB; time = '24h' }
     }
-    workDir = '/path/ke/ssd_ext4/work'      // Hindari exFAT/NTFS
+    workDir = '/path/to/ssd_ext4/work'   // Avoid exFAT/NTFS
     scratch = true
   }
 
-  // Contoh profile untuk cluster SLURM
+  // Example profile for SLURM cluster
   slurm {
     process {
       executor = 'slurm'
@@ -41,48 +41,49 @@ profiles {
   }
 }
 
-// Parameter pipeline yang sering diganti
+// Commonly overridden pipeline parameters
 params {
   outdir = 'results'
-  // Contoh referensi
+  // Example references
   genome_fasta = '/data/ref/GRCh38.fa'
   genome_gtf   = '/data/ref/GRCh38.gtf'
-  // Misal subset/target gene
+  // Example subset / target gene
   bed_regions  = 'assets/targets.bed'
 }
 
-## 3) Label Proses & Resource
-Nextflow bisa kita setting untuk pakai **resource berbeda untuk setiap proses**.  
-Gunakan `withLabel:` atau `withName:` untuk override kebutuhan CPU/RAM/time.
+## 3) Process Labels, Disk Issues, and OOM Handling
 
-### Contoh dengan `label`
+Nextflow allows customizing resources per process and also requires some adjustments to avoid disk errors or out-of-memory (OOM) problems.
+
+### Process Labels & Resource Allocation
+You can set **different CPU/RAM/time** for each process using `withLabel:` or `withName:`.
+
 ```groovy
 process {
-  // default semua proses
+  // default for all processes
   cpus = 2
   memory = 4.GB
   time = '2h'
 
-  // override berdasarkan label
-  withLabel: 'map'       { cpus = 8;  memory = 32.GB; time = '24h' }
-  withLabel: 'assemble'  { cpus = 12; memory = 48.GB; time = '36h' }
+  // override based on label
+  withLabel: 'map'      { cpus = 8;  memory = 32.GB; time = '24h' }
+  withLabel: 'assemble' { cpus = 12; memory = 48.GB; time = '36h' }
 }
 
-### Contoh dengan 'process name'
-```groovy
 process {
-  withName: 'pipeline:reference_assembly:map_reads' { cpus = 8; memory = 32.GB; time = '24h' }
-  withName: 'pipeline:split_bam'                    { cpus = 4; memory = 16.GB; time = '8h' }
+  // override based on process name
+  withName: 'pipeline:reference_assembly:map_reads' { cpus = 8;  memory = 32.GB; time = '24h' }
+  withName: 'pipeline:split_bam'                    { cpus = 4;  memory = 16.GB; time = '8h' }
   withName: 'pipeline:assemble_transcripts'         { cpus = 12; memory = 48.GB; time = '36h' }
 }
 
-## 4. Menghindari Error "No space left on device"
-Error ini sering muncul karena:
-1. workDir diarahkan ke disk exFAT/NTFS (tidak kompatibel).
-2. Disk penuh (mis. /tmp terlalu kecil).
+## 4) Avoiding "No space left on device" Errors
+This error often appears because:
+1. `workDir` is pointed to an exFAT/NTFS disk (not compatible).
+2. The disk is full (e.g. `/tmp` is too small).
 
-### Solusi
-Atur workDir di nextflow.config atau custom.config:
+**Solution**
+Set `workDir` in `nextflow.config` or `custom.config`:
 ```groovy
 workDir = '/mnt/nvme_ext4/work'   // gunakan filesystem EXT4/XFS
 process {
@@ -90,11 +91,11 @@ process {
   env.TMPDIR = '/mnt/nvme_ext4/tmp'
 }
 
-## 5) 5. Mengatasi OOM (Out Of Memory)
-Error exit 137 atau Killed biasanya karena RAM kurang.
+## 5) Handling OOM (Out Of Memory)
+Error `exit 137` or `Killed` ussually indicates insufficient RAM.
 
-Solusi
-1. Tambahkan alokasi RAM di process:
+Solution
+**1. Increase memory allocation for the specific process:**
 ```groovy
 process {
   withName: 'pipeline:assemble_transcripts' {
