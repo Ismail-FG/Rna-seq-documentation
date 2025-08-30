@@ -51,9 +51,7 @@ params {
   bed_regions  = 'assets/targets.bed'
 }
 ---
-
 ## 3) Process Labels, Disk Issues, and OOM Handling
-
 Nextflow allows customizing resources per process and also requires some adjustments to avoid disk errors or out-of-memory (OOM) problems.
 
 ### Process Labels & Resource Allocation
